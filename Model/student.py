@@ -10,8 +10,8 @@ class StudentModel:
 
             query = """
                 SELECT s.*, u.*
-                FROM Student_ AS s
-                INNER JOIN Users AS u ON s.User_ID = u.User_ID
+                FROM student AS s
+                INNER JOIN users AS u ON s.userID = u.userID
             """
             cursor.execute(query)
 
@@ -26,8 +26,6 @@ class StudentModel:
 
         except Exception as e:
             return {"error": str(e)}
-        
-
 
     @staticmethod
     def insert_user_and_student(data):
@@ -35,33 +33,37 @@ class StudentModel:
             conn = Config.get_connection()
             cursor = conn.cursor()
 
-            # Insert into User table
+            # Insert into Users table (with password)
             insert_user_query = """
-                INSERT INTO [Users] (User_ID, name, phone_number, email, location, password)
-                OUTPUT INSERTED.User_ID
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO [users] 
+                    (userID, first_name, middle_name, last_name, location, profile_pic, personal_summary, password, email)
+                OUTPUT INSERTED.userID
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             cursor.execute(insert_user_query, (
-                data["User_ID"],
-                data["name"],
-                data["phone_number"],
-                data["email"],
+                data["userID"],
+                data["first_name"],
+                data["middle_name"],
+                data["last_name"],
                 data["location"],
-                data["password"]
+                data.get("profile_pic", None),        # nullable
+                data.get("personal_summary", None),   # nullable
+                data["email"],
+                data["password"]                     
             ))
 
-            # Get the new User_ID
+            # Get the new UserID
             user_id = cursor.fetchone()[0]
 
             # Insert into Student_ table
-            insert_student_query = "INSERT INTO Student_ (User_ID) VALUES (?)"
+            insert_student_query = "INSERT INTO student (userID) VALUES (?)"
             cursor.execute(insert_student_query, (user_id,))
 
             conn.commit()
             cursor.close()
             conn.close()
 
-            return {"message": "Student registered successfully", "User_ID": user_id}
+            return {"message": "Student registered successfully", "userID": user_id}
 
         except Exception as e:
             return {"error": str(e)}

@@ -11,7 +11,7 @@ class StudentService:
     @staticmethod
     def register_student(data):
         # Example business logic: could add validation here later
-        if not all(key in data for key in ("User_ID", "name", "phone_number", "email", "location", "password")):
+        if not all(key in data for key in ("userID", "first_name", "middle_name", "last_name", "location", "profile_pic", "personal_summary", "password", "email")):
             return {"error": "Missing required fields"}
         
         return StudentModel.insert_user_and_student(data)

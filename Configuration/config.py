@@ -2,8 +2,8 @@ import pyodbc
 
 class Config:
     DRIVER = "ODBC Driver 17 for SQL Server"
-    SERVER = r"localhost\MSSQLSERVER2022"   # Use raw string for backslash
-    DATABASE = "ACUD"
+    SERVER = r"ALIELSAYEDSOLIM\SQLEXPRESS"   # Use raw string for backslash
+    DATABASE = "proj"
 
     @staticmethod
     def get_connection():
