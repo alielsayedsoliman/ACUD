@@ -1,9 +1,8 @@
 from Configuration.config import Config
 
-
-class StudentModel:
+class MentorModel:
     @staticmethod
-    def get_all_students(page=1, items_per_page=10):
+    def get_all_mentors(page=1, items_per_page=10):
         try:
             conn = Config.get_connection()
             cursor = conn.cursor()
@@ -11,7 +10,7 @@ class StudentModel:
             # Get total count
             count_query = """
                 SELECT COUNT(*) as total
-                FROM student
+                FROM mentor
             """
             cursor.execute(count_query)
             total_items = cursor.fetchone().total
@@ -20,18 +19,17 @@ class StudentModel:
             offset = (page - 1) * items_per_page
 
             query = """
-                SELECT s.*, u.*
-                FROM student AS s
-                INNER JOIN users AS u ON s.userID = u.userID
-                ORDER BY s.userID
+                SELECT m.*, u.*
+                FROM mentor AS m
+                INNER JOIN users AS u ON m.userID = u.userID
+                ORDER BY m.userID
                 OFFSET ? ROWS
                 FETCH NEXT ? ROWS ONLY
             """
             cursor.execute(query, (offset, items_per_page))
-
-            columns = [column[0] for column in cursor.description]  # get column names
+            columns = [column[0] for column in cursor.description]
             rows = cursor.fetchall()
-            students = [dict(zip(columns, row)) for row in rows]
+            mentors = [dict(zip(columns, row)) for row in rows]
 
             cursor.close()
             conn.close()
@@ -39,7 +37,7 @@ class StudentModel:
             total_pages = (total_items + items_per_page - 1) // items_per_page
             
             return {
-                "students": students,
+                "mentors": mentors,
                 "pagination": {
                     "total_items": total_items,
                     "total_pages": total_pages,
@@ -47,73 +45,50 @@ class StudentModel:
                     "items_per_page": items_per_page
                 }
             }
-
         except Exception as e:
             return {"error": str(e)}
 
     @staticmethod
-    def insert_user_and_student(data):
+    def insert_user_and_mentor(data):
         try:
             conn = Config.get_connection()
             cursor = conn.cursor()
 
-            # Insert into Users table (with password)
             insert_user_query = """
                 INSERT INTO [users] 
                     (userID, first_name, middle_name, last_name, location, profile_pic, personal_summary, password, email)
                 OUTPUT INSERTED.userID
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
+            # NOTE: password then email (order must match column list)
             cursor.execute(insert_user_query, (
                 data["userID"],
                 data["first_name"],
                 data["middle_name"],
                 data["last_name"],
                 data["location"],
-                data.get("profile_pic", None),        # nullable
-                data.get("personal_summary", None),   # nullable
-                data["email"],
-                data["password"]                     
+                data.get("profile_pic", None),
+                data.get("personal_summary", None),
+                data["password"],
+                data["email"]
             ))
 
-            # Get the new UserID
             user_id = cursor.fetchone()[0]
 
-            # Insert into Student_ table
-            insert_student_query = "INSERT INTO student (userID) VALUES (?)"
-            cursor.execute(insert_student_query, (user_id,))
-
-            conn.commit()
-            cursor.close()
-            conn.close()
-
-            return {"message": "Student registered successfully", "userID": user_id}
-
-        except Exception as e:
-            return {"error": str(e)}
-        
-    
-    @staticmethod
-    def update_profile(user_id, profile_pic, personal_summary):
-        try:
-            conn = Config.get_connection()
-            cursor = conn.cursor()
-
-            update_query = """
-                UPDATE users
-                SET profile_pic = ?, personal_summary = ?
-                WHERE userID = ?
+            insert_mentor_query = """
+                INSERT INTO mentor (userID, professional_background, expertise) VALUES (?, ?, ?)
             """
-            cursor.execute(update_query, (profile_pic, personal_summary, user_id))
-
-            if cursor.rowcount == 0:
-                return {"error": "Student not found"}
+            cursor.execute(insert_mentor_query, (
+                user_id,
+                data.get("professional_background", None),
+                data.get("expertise", None)
+            ))
 
             conn.commit()
             cursor.close()
             conn.close()
 
-            return {"message": "Student updated successfully"}
+            return {"message": "Mentor registered successfully", "userID": user_id}
 
         except Exception as e:
             return {"error": str(e)}

@@ -2,10 +2,10 @@ from Model.course import CourseModel
 
 class CourseService:
     @staticmethod
-    def fetch_all_courses():
-        courses = CourseModel.get_all_courses()
+    def fetch_all_courses(page=1, items_per_page=10):
+        result = CourseModel.get_all_courses(page, items_per_page)
         # Add any business logic here (filtering, sorting, etc.)
-        return courses
+        return result
 
     @staticmethod
     def get_course(course_id):

@@ -3,9 +3,11 @@ from flask import request, jsonify
 
 class CourseController:
     @staticmethod
-    def get_courses():
-        courses = CourseService.fetch_all_courses()
-        return jsonify({"courses": courses})
+    def get_courses(page=1, items_per_page=10):
+        result = CourseService.fetch_all_courses(page, items_per_page)
+        if "error" in result:
+            return jsonify(result), 500
+        return jsonify(result)
     
     @staticmethod
     def get_course(course_id):

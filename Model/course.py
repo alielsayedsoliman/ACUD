@@ -3,25 +3,49 @@ from Configuration.config import Config
 
 class CourseModel:
     @staticmethod
-    def get_all_courses():
+    def get_all_courses(page=1, items_per_page=10):
         try:
             conn = Config.get_connection()
             cursor = conn.cursor()
 
+            # Get total count
+            count_query = """
+                SELECT COUNT(*) as total
+                FROM courses
+            """
+            cursor.execute(count_query)
+            total_items = cursor.fetchone().total
+
+            # Calculate pagination values
+            offset = (page - 1) * items_per_page
+
             query = """
                 SELECT coursesID, title, brief_description, difficulty_level
                 FROM courses
+                ORDER BY coursesID
+                OFFSET ? ROWS
+                FETCH NEXT ? ROWS ONLY
             """
-            cursor.execute(query)
+            cursor.execute(query, (offset, items_per_page))
 
             columns = [column[0] for column in cursor.description]
             rows = cursor.fetchall()
-
             courses = [dict(zip(columns, row)) for row in rows]
 
             cursor.close()
             conn.close()
-            return courses
+
+            total_pages = (total_items + items_per_page - 1) // items_per_page
+            
+            return {
+                "courses": courses,
+                "pagination": {
+                    "total_items": total_items,
+                    "total_pages": total_pages,
+                    "current_page": page,
+                    "items_per_page": items_per_page
+                }
+            }
 
         except Exception as e:
             return {"error": str(e)}
