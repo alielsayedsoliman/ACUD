@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Group Chat</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+
+    /* ===== Header ===== */
+    .chat-header { background: #007bff; color: white; padding: 15px; font-weight: bold; }
+
+    /* ===== Messages ===== */
+    #messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+    .message-wrapper { display: flex; align-items: flex-start; max-width: 70%; }
+    .message-content { display: flex; flex-direction: column; gap: 3px; }
+    .sender-name { font-size: 13px; font-weight: bold; margin-bottom: 2px; text-align: left; }
+    .message { padding: 10px 15px; border-radius: 10px; word-wrap: break-word; }
+    .mentor-message { background: #4caf50; color: white; }
+    .student-message { background: #e0e0e0; color: black; }
+    .profile-pic { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+
+    /* Alignments */
+    .me { flex-direction: row-reverse; align-self: flex-end; }
+    .other { flex-direction: row; align-self: flex-start; }
+
+    /* ===== Status ===== */
+    .status { text-align: center; font-style: italic; color: #555; font-size: 14px; }
+
+    /* ===== Input ===== */
+    .input-area { display: flex; border-top: 1px solid #ccc; }
+    #message-input { flex: 1; padding: 12px; border: none; outline: none; font-size: 15px; }
+    #send-btn { background: #007bff; color: white; border: none; padding: 12px 20px; cursor: pointer; }
+    #send-btn:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <!-- ✅ Header -->
+  <div class="chat-header">Group Chat Room</div>
+
+  <!-- Messages -->
+  <div id="messages"></div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <input type="text" id="message-input" placeholder="Type your message..." />
+    <button id="send-btn">Send</button>
+  </div>
+
+  <script>
+    const socket = io("http://127.0.0.1:5000");
+
+    // ====== User & Room Info (ممكن تبقى من السيرفر بعدين) ======
+    const room_id = "room1";  
+    const user_id = Math.floor(Math.random() * 1000); // random مؤقت
+    const user_type = Math.random() > 0.5 ? "Mentor" : "Student"; // random مؤقت
+    const sender_name = `${user_type} ${user_id}`;
+
+    const messagesDiv = document.getElementById("messages");
+    const input = document.getElementById("message-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    // ====== Join Group ======
+    socket.on("connect", () => {
+      socket.emit("join_group", { room_id, user_id, user_type, sender_name });
+    });
+
+    // ====== Receive Messages ======
+    socket.on("receive_group_message", (data) => {
+      if (data.sender_id === "System") {
+        addStatusMessage(data.content);
+      } else {
+        addMessage(data.sender_name, data.sender_type, data.content, data.sender_id);
+      }
+    });
+
+    // ====== Send Message ======
+    function sendMessage() {
+      const content = input.value.trim();
+      if (!content) return;
+      socket.emit("send_group_message", { room_id, user_id, user_type, sender_name, content });
+      input.value = "";
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    input.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+
+    // ====== Leave ======
+    window.addEventListener("beforeunload", () => {
+      socket.emit("leave_group", { room_id, user_id, sender_name });
+    });
+
+    // ====== Render Message ======
+    function addMessage(name, type, content, senderId) {
+      const wrapper = document.createElement("div");
+      wrapper.className = senderId == user_id ? "message-wrapper me" : "message-wrapper other";
+
+      const img = document.createElement("img");
+      img.className = "profile-pic";
+      img.src = type === "Mentor"
+        ? "https://via.placeholder.com/30/4caf50/ffffff?text=M"
+        : "https://via.placeholder.com/30/007bff/ffffff?text=S";
+
+      const contentDiv = document.createElement("div");
+      contentDiv.className = "message-content";
+
+      const senderName = document.createElement("div");
+      senderName.className = "sender-name";
+      senderName.textContent = senderId == user_id ? "Me" : name;
+
+      const msg = document.createElement("div");
+      msg.className = type === "Mentor" ? "message mentor-message" : "message student-message";
+      msg.textContent = content;
+
+      contentDiv.appendChild(senderName);
+      contentDiv.appendChild(msg);
+
+      wrapper.appendChild(img);
+      wrapper.appendChild(contentDiv);
+
+      messagesDiv.appendChild(wrapper);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // ====== Render Status ======
+    function addStatusMessage(content) {
+      const status = document.createElement("div");
+      status.className = "status";
+      status.textContent = content;
+      messagesDiv.appendChild(status);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>

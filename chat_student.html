@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat - Student</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+    
+    /* ===== Header ===== */
+    .chat-header { 
+      background: #007bff; 
+      color: white; 
+      padding: 15px; 
+      display: flex; 
+      align-items: center; 
+      font-weight: bold; 
+    }
+    .chat-header img {
+      width: 35px; 
+      height: 35px; 
+      border-radius: 50%; 
+      margin-right: 10px;
+      object-fit: cover;
+    }
+
+    /* ===== Messages ===== */
+    #messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+    .message-wrapper {
+      display: flex;
+      align-items: flex-start;
+      max-width: 70%;
+    }
+    .message-content {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .sender-name { font-size: 13px; font-weight: bold; margin-bottom: 2px; text-align: left; }
+    .message { padding: 10px 15px; border-radius: 10px; word-wrap: break-word; }
+    .mentor-message { background: #e0e0e0; color: black; }
+    .student-message { background: #4caf50; color: white; }
+    .profile-pic {
+      width: 30px; 
+      height: 30px; 
+      border-radius: 50%; 
+      object-fit: cover;
+    }
+
+    /* Alignments */
+    .me { flex-direction: row-reverse; align-self: flex-end; }    /* Me → right */
+    .other { flex-direction: row; align-self: flex-start; }       /* Other → left */
+
+    /* ===== Status ===== */
+    .status { text-align: center; font-style: italic; color: #555; font-size: 14px; }
+
+    /* ===== Input ===== */
+    .input-area { display: flex; border-top: 1px solid #ccc; }
+    #message-input { flex: 1; padding: 12px; border: none; outline: none; font-size: 15px; }
+    #send-btn { background: #007bff; color: white; border: none; padding: 12px 20px; cursor: pointer; }
+    #send-btn:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <!-- ✅ Header -->
+  <div class="chat-header">
+    <img src="https://via.placeholder.com/35" alt="Profile" />
+    <span id="chat-with">Chat with Mentor (ID: 202)</span>
+  </div>
+
+  <!-- Messages -->
+  <div id="messages"></div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <input type="text" id="message-input" placeholder="Type your message..." />
+    <button id="send-btn">Send</button>
+  </div>
+
+  <script>
+    const socket = io("http://127.0.0.1:5000");
+
+    // IDs
+    const student_id = 101;
+    const mentor_id = 202;
+    const sender_id = student_id; // ✅ الطالب هو اللي داخل
+
+    const messagesDiv = document.getElementById("messages");
+    const input = document.getElementById("message-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    // Header title
+    const chatWith = document.getElementById("chat-with");
+    chatWith.textContent = sender_id === student_id 
+      ? `Chat with Mentor (ID: ${mentor_id})` 
+      : `Chat with Student (ID: ${student_id})`;
+
+    // Connect
+    socket.on("connect", () => {
+        socket.emit("join_chat", { student_id, mentor_id, sender_id });
+    });
+
+    // Receive messages
+    socket.on("receive_message", (data) => {
+        if (data.sender_id === "System") {
+            addStatusMessage(data.content);
+        } else {
+            addMessage(data.sender_id, data.content, data.timestamp);
+        }
+    });
+
+    // Send message
+    function sendMessage() {
+        const content = input.value.trim();
+        if (!content) return;
+        socket.emit("send_message", { student_id, mentor_id, sender_id, content });
+        input.value = "";
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+
+    input.addEventListener("keypress", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Leave
+    window.addEventListener("beforeunload", () => {
+        socket.emit("leave_chat", { student_id, mentor_id, sender_id });
+    });
+
+    // ✅ Message with profile pic + name
+    function addMessage(sender, content, timestamp) {
+        const wrapper = document.createElement("div");
+
+        // Class based on sender
+        if (sender == sender_id) {
+            wrapper.className = "message-wrapper me";  // الطالب على اليمين
+        } else {
+            wrapper.className = "message-wrapper other"; // المينتور على الشمال
+        }
+
+        // صورة البروفايل
+        const img = document.createElement("img");
+        img.className = "profile-pic";
+        img.src = sender == student_id 
+          ? "https://via.placeholder.com/30/007bff/ffffff?text=S" 
+          : "https://via.placeholder.com/30/4caf50/ffffff?text=M";
+
+        // محتوى الرسالة
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "message-content";
+
+        const senderName = document.createElement("div");
+        senderName.className = "sender-name";
+        senderName.textContent = sender == sender_id ? "Me" : (sender == student_id ? "Student" : "Mentor");
+
+        const msg = document.createElement("div");
+        msg.className = sender == student_id ? "message student-message" : "message mentor-message";
+        msg.textContent = content;
+
+        contentDiv.appendChild(senderName);
+        contentDiv.appendChild(msg);
+
+        wrapper.appendChild(img);
+        wrapper.appendChild(contentDiv);
+
+        messagesDiv.appendChild(wrapper);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // ✅ Status message (centered)
+    function addStatusMessage(content) {
+        const status = document.createElement("div");
+        status.className = "status";
+        status.textContent = content;
+        messagesDiv.appendChild(status);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
